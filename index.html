@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="https://www.kpu.go.id/images/1627539868logo-kpu.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <meta name="theme-color" content="#8B0000" />
+    <meta name="description" content="Sistem Presensi WFH - KPU Kabupaten Sekadau" />
+    <title>E-Presensi | KPU Kabupaten Sekadau</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:ital,wght@0,700;0,900;1,700;1,900&display=swap" rel="stylesheet">
+
+    <style>
+      /* Global Smooth Styling */
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8fafc;
+        margin: 0;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Custom Font Header */
+      h1, h2, .font-montserrat {
+        font-family: 'Montserrat', sans-serif;
+      }
+
+      /* Animasi Pre-Loader yang Keren */
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        background: #8B0000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out, visibility 0.5s;
+      }
+
+      .logo-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pulse-ring {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(0.8); opacity: 0.8; }
+        50% { transform: scale(1.2); opacity: 0.3; }
+        100% { transform: scale(0.8); opacity: 0.8; }
+      }
+
+      .loading-text {
+        color: white;
+        margin-top: 3rem;
+        font-weight: 800;
+        
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        font-size: 10px;
+        animation: fadeText 1.5s infinite;
+      }
+
+      @keyframes fadeText {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
+      }
+
+      /* Sembunyikan scrollbar saat loading */
+      body.loading {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body class="loading">
+    
+    <div id="initial-loader">
+      <div class="logo-container">
+        <div class="pulse-ring"></div>
+        <img 
+          src="https://www.kpu.go.id/images/1627539868logo-kpu.png" 
+          style="height: 70px; width: auto; position: relative; z-index: 10;" 
+          alt="Logo KPU"
+        />
+      </div>
+      <p class="loading-text">Menyiapkan Sistem...</p>
+    </div>
+
+    <div id="root"></div>
+
+    <script type="module" src="/src/main.jsx"></script>
+
+    <script>
+      window.addEventListener('load', () => {
+        const loader = document.getElementById('initial-loader');
+        setTimeout(() => {
+          loader.style.opacity = '0';
+          loader.style.visibility = 'hidden';
+          document.body.classList.remove('loading');
+        }, 1000); // Jeda 1 detik biar animasi transisi terasa halus
+      });
+    </script>
+  </body>
+</html>
