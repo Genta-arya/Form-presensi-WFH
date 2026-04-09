@@ -1,4 +1,4 @@
-import { Lock, Mail } from 'lucide-react'
+import { Loader2, Lock, Mail } from 'lucide-react'
 import React from 'react'
 
 const Authentikasi = ({ handleLogin, email, setEmail, password, setPassword, rememberMe, setRememberMe, loading, }) => {
