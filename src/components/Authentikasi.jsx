@@ -41,6 +41,7 @@ const Authentikasi = ({ handleLogin, email, setEmail, password, setPassword, rem
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <input
                     type="email"
+                    placeholder="Masukkan email"
                     value={email}
                     className="w-full bg-slate-50 border-2 border-slate-100 p-4 pl-12 rounded-2xl font-bold outline-none focus:border-[#8B0000] transition-all text-slate-700"
                     onChange={(e) => setEmail(e.target.value)}
