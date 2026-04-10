@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Rekap from "./components/Rekap";
 import App from "./App";
 
@@ -9,8 +9,14 @@ function Routers() {
         {/* Halaman Utama: Form Absensi */}
         <Route path="/" element={<App />} />
 
-        {/* Halaman Rekap: Tabel Laporan */}
-        <Route path="/rekap" element={<Rekap />} />
+        {/* Jika akses ke /rekap, arahkan ke /dashboard */}
+        <Route path="/rekap" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Halaman Dashboard (Isinya komponen Rekap) */}
+        <Route path="/dashboard" element={<Rekap />} />
+
+        {/* Jika route tidak ditemukan (404), arahkan kembali ke / */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
