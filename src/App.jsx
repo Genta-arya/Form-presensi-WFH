@@ -9,7 +9,7 @@ import {
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
-import { Clock, ShieldAlert, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Clock, ShieldAlert, LockKeyhole, ShieldCheck, AlertTriangle } from "lucide-react";
 import Swal from "sweetalert2";
 
 function App() {
@@ -22,7 +22,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(null);
   const [currentDate, setCurrentDate] = useState("");
   const [isJumat, setIsJumat] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // State Keamanan
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isTimeSynced, setIsTimeSynced] = useState(false); // Flag sinkronisasi API
 
   // 1. FUNGSI SECURITY PASSWORD DENGAN SESSION 6 HARI
   const handleSecurityCheck = async () => {
@@ -30,12 +31,10 @@ function App() {
     const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
     const now = new Date().getTime();
 
-    // Cek apakah ada session yang tersimpan
     const savedSession = localStorage.getItem(SESSION_KEY);
 
     if (savedSession) {
       const sessionData = JSON.parse(savedSession);
-      // Jika session belum expired (kurang dari 6 hari)
       if (now - sessionData.timestamp < SIX_DAYS_MS) {
         setIsAuthenticated(true);
         return;
@@ -65,13 +64,8 @@ function App() {
     });
 
     if (password === "SEKADAU2026") {
-      // Simpan session ke localStorage
-      const newSession = {
-        authenticated: true,
-        timestamp: now,
-      };
+      const newSession = { authenticated: true, timestamp: now };
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
-
       setIsAuthenticated(true);
       Swal.fire({
         icon: "success",
@@ -85,46 +79,68 @@ function App() {
     }
   };
 
-  // 2. FUNGSI AMBIL JAM & VALIDASI HARI
+  // 2. FUNGSI AMBIL JAM (DENGAN ANTISIPASI GAGAL/CONNECTION RESET)
   const fetchTimeAndValidate = async () => {
+    let apiDate = null;
+
     try {
+      // Coba API Utama
       const response = await fetch(
         "https://www.timeapi.io/api/Time/current/zone?timeZone=Asia/Jakarta"
       );
+      if (!response.ok) throw new Error("API Timeout");
       const data = await response.json();
-      const apiDate = new Date(data.dateTime);
+      apiDate = new Date(data.dateTime);
+      setIsTimeSynced(true);
+    } catch (err) {
+      console.warn("Gagal sinkronasi jam server, menggunakan waktu lokal perangkat.");
+      apiDate = new Date(); // Fallback ke waktu lokal
+      setIsTimeSynced(false);
+      
+      // Notifikasi bahwa waktu tidak sinkron server tapi tetap bisa jalan
+      Swal.fire({
+        icon: "warning",
+        title: "Mode Offline Time",
+        text: "Gagal terhubung ke server waktu. Pastikan jam HP Anda akurat.",
+        toast: true,
+        position: "top-right",
+        showConfirmButton: false,
+        timer: 5000
+      });
+    }
+
+    if (apiDate) {
       setCurrentTime(apiDate);
 
-      // VALIDASI JUMAT
+      // VALIDASI JUMAT (Disesuaikan dengan apiDate)
       if (apiDate.getDay() !== 5) {
         setIsJumat(false);
       } else {
-        // Jika hari Jumat, baru munculkan security check (akan auto-login jika session masih ada)
         handleSecurityCheck();
       }
 
       const opsiTanggal = { weekday: "long", day: "numeric", month: "numeric", year: "numeric" };
       const tanggalIndo = new Intl.DateTimeFormat("id-ID", opsiTanggal).format(apiDate);
       setCurrentDate(tanggalIndo.replace(/\//g, "-"));
-    } catch (err) {
-      console.error("Gagal sinkronasi jam server:", err);
-      setCurrentTime(new Date());
     }
   };
 
   useEffect(() => {
     fetchTimeAndValidate();
+    
+    // Timer Realtime
     const timer = setInterval(() => {
       setCurrentTime((prevTime) => (prevTime ? new Date(prevTime.getTime() + 1000) : null));
     }, 1000);
 
+    // Ambil Data Pegawai
     const fetchPegawai = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "pegawai"));
         const docs = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setListPegawai(docs.sort((a, b) => parseInt(a.id) - parseInt(b.id)));
       } catch (err) {
-        console.error("Gagal ambil data:", err);
+        console.error("Gagal ambil data pegawai:", err);
       }
     };
 
@@ -152,7 +168,7 @@ function App() {
         } else {
           await setDoc(docRef, {
             tanggal: todayId,
-            tanggal_server: serverTimestamp(),
+            tanggal_server: serverTimestamp(), // Tetap pakai jam server asli Firebase untuk database
             id_pegawai: selectedPegawai.id,
             nama: selectedPegawai.nama,
             jabatan: selectedPegawai.jabatan,
@@ -161,7 +177,7 @@ function App() {
             laporan: "-",
             status_final: "HADIR",
           });
-          Swal.fire("Berhasil", "Absen MASUK tercatat jam " + serverTimeFormat, "success");
+          Swal.fire("Berhasil", `Absen MASUK tercatat jam ${serverTimeFormat}`, "success");
         }
       } else {
         if (docSnap.exists()) {
@@ -174,7 +190,7 @@ function App() {
               status_final: "HADIR (Lengkap)",
               update_terakhir: serverTimestamp(),
             });
-            Swal.fire("Berhasil", "Absen PULANG tercatat jam " + serverTimeFormat, "success");
+            Swal.fire("Berhasil", `Absen PULANG tercatat jam ${serverTimeFormat}`, "success");
           }
         } else {
           Swal.fire("Ditolak", "Anda belum absen MASUK pagi ini!", "error");
@@ -187,7 +203,7 @@ function App() {
     }
   };
 
-  // --- VIEW: BLOKIR BUKAN HARI JUMAT ---
+  // --- VIEW: BUKAN HARI JUMAT ---
   if (!isJumat) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
@@ -207,16 +223,16 @@ function App() {
     return (
       <div className="min-h-screen bg-[#8B0000] flex flex-col items-center justify-center text-white">
         <LockKeyhole className="w-12 h-12 mb-4 opacity-20 animate-bounce" />
-        <p className="text-[10px] font-black uppercase tracking-[0.5em]">Menunggu Otentikasi...</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.5em]">Harap tunggu sebentar...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 md:p-8 font-sans text-left animate-in fade-in duration-1000">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 md:p-8 font-sans animate-in fade-in duration-1000">
       <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white">
         
-        {/* SISI KIRI (RESPONSIVE HEADER) */}
+        {/* KIRI: HEADER & CLOCK */}
         <div className="bg-[#8B0000] p-8 md:p-12 md:w-2/5 flex flex-col items-center justify-between text-white text-center relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
           
@@ -226,19 +242,21 @@ function App() {
             <p className="text-white/60 text-[9px] font-bold tracking-[0.3em] uppercase mt-2 italic">KPU Kabupaten Sekadau</p>
           </div>
 
-          {/* JAM DIGITAL BOX */}
           <div className="bg-black/30 p-6 md:p-8 rounded-[2rem] backdrop-blur-xl border border-white/10 w-full my-8 relative z-10 shadow-2xl">
              <div className="flex items-center justify-center gap-2 mb-3">
-                <Clock className="w-4 h-4 text-orange-400 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Waktu Indonesia Barat</span>
+                <Clock className={`w-4 h-4 animate-pulse ${isTimeSynced ? 'text-orange-400' : 'text-red-400'}`} />
+                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isTimeSynced ? 'text-orange-400' : 'text-red-400'}`}>
+                    {isTimeSynced ? "Waktu Indonesia Barat" : "Waktu Lokal (Offline)"}
+                </span>
              </div>
              <h2 className="text-4xl md:text-5xl font-black tracking-tighter tabular-nums drop-shadow-lg">
                {currentTime ? currentTime.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).replace(/\./g, ":") : "--:--:--"}
              </h2>
              <div className="mt-4 pt-4 border-t border-white/10 flex flex-col items-center gap-1">
                 <p className="text-[11px] font-black uppercase tracking-widest text-white">{currentDate || "SINKRONISASI..."}</p>
-                <div className="flex items-center gap-1 text-[8px] text-green-400 font-bold uppercase">
-                    <ShieldCheck className="w-3 h-3" /> Server Terverifikasi
+                <div className={`flex items-center gap-1 text-[8px] font-bold uppercase ${isTimeSynced ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {isTimeSynced ? <ShieldCheck className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    {isTimeSynced ? "Server Terverifikasi" : "Sinkronasi API Gagal"}
                 </div>
              </div>
           </div>
@@ -248,15 +266,14 @@ function App() {
           </div>
         </div>
 
-        {/* SISI KANAN (FORM) */}
+        {/* KANAN: FORM */}
         <div className="p-8 md:p-14 md:w-3/5 space-y-8 bg-white flex flex-col justify-center">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">Formulir Presensi</h2>
-            <p className="text-slate-400 text-xs font-medium italic">Silakan lengkapi data kehadiran Anda hari ini.</p>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase text-left">Formulir Presensi</h2>
+            <p className="text-slate-400 text-xs font-medium italic text-left">Silakan lengkapi data kehadiran Anda hari ini.</p>
           </div>
 
-          <div className="space-y-6">
-            {/* Nama Pegawai */}
+          <div className="space-y-6 text-left">
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Pilih Identitas</label>
               <div className="relative">
@@ -273,7 +290,6 @@ function App() {
               </div>
             </div>
 
-            {/* Grid Status & Jabatan */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Sesi Presensi</label>
@@ -295,9 +311,8 @@ function App() {
               </div>
             </div>
 
-            {/* Laporan (Conditional) */}
             {status === "PULANG" && (
-              <div className="animate-in slide-in-from-top-4 duration-500 text-left space-y-2">
+              <div className="animate-in slide-in-from-top-4 duration-500 space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Laporan Pekerjaan (Harian)</label>
                 <textarea
                   className="w-full bg-slate-50 border-2 border-slate-100 p-5 rounded-[2rem] text-sm font-medium outline-none focus:border-[#8B0000] focus:bg-white transition-all shadow-inner min-h-[120px]"
@@ -322,7 +337,9 @@ function App() {
             </button>
             <div className="mt-4 flex items-center justify-center gap-2 text-slate-300">
                <div className="h-[1px] w-8 bg-slate-100"></div>
-               <p className="text-[8px] font-black uppercase tracking-widest">Waktu Server Terverifikasi</p>
+               <p className="text-[8px] font-black uppercase tracking-widest">
+                {isTimeSynced ? "Waktu Server Terverifikasi" : "Waktu Lokal Perangkat"}
+               </p>
                <div className="h-[1px] w-8 bg-slate-100"></div>
             </div>
           </div>
