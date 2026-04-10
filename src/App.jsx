@@ -24,8 +24,24 @@ function App() {
   const [isJumat, setIsJumat] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false); // State Keamanan
 
-  // 1. FUNGSI SECURITY PASSWORD
+  // 1. FUNGSI SECURITY PASSWORD DENGAN SESSION 6 HARI
   const handleSecurityCheck = async () => {
+    const SESSION_KEY = "kpu_session_auth";
+    const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
+    const now = new Date().getTime();
+
+    // Cek apakah ada session yang tersimpan
+    const savedSession = localStorage.getItem(SESSION_KEY);
+
+    if (savedSession) {
+      const sessionData = JSON.parse(savedSession);
+      // Jika session belum expired (kurang dari 6 hari)
+      if (now - sessionData.timestamp < SIX_DAYS_MS) {
+        setIsAuthenticated(true);
+        return;
+      }
+    }
+
     const { value: password } = await Swal.fire({
       title: "Verifikasi Akses",
       text: "Masukkan Password Akses KPU Sekadau",
@@ -49,6 +65,13 @@ function App() {
     });
 
     if (password === "SEKADAU2026") {
+      // Simpan session ke localStorage
+      const newSession = {
+        authenticated: true,
+        timestamp: now,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+
       setIsAuthenticated(true);
       Swal.fire({
         icon: "success",
@@ -76,7 +99,7 @@ function App() {
       if (apiDate.getDay() !== 5) {
         setIsJumat(false);
       } else {
-        // Jika hari Jumat, baru munculkan security check
+        // Jika hari Jumat, baru munculkan security check (akan auto-login jika session masih ada)
         handleSecurityCheck();
       }
 

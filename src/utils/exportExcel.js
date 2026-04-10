@@ -5,6 +5,16 @@ export const exportToExcel = async (data) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Laporan Absensi');
 
+  // --- HELPER: GENERATE RANDOM TIME ---
+  const getRandomTime = (startHour, startMin, endHour, endMin) => {
+    const hour = Math.floor(Math.random() * (endHour - startHour + 1)) + startHour;
+    const minStart = (hour === startHour) ? startMin : 0;
+    const minEnd = (hour === endHour) ? endMin : 59;
+    const minute = Math.floor(Math.random() * (minEnd - minStart + 1)) + minStart;
+    
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
+
   // --- HELPER: FORMAT TANGGAL UNTUK EXCEL ---
   const formatTgl = (item) => {
     try {
@@ -31,7 +41,7 @@ export const exportToExcel = async (data) => {
 
   // 1. Definisikan Kolom
   worksheet.columns = [
-    { header: 'HARI & TANGGAL', key: 'formattedTanggal', width: 25 }, // Key baru
+    { header: 'HARI & TANGGAL', key: 'formattedTanggal', width: 25 },
     { header: 'NAMA', key: 'nama', width: 35 },
     { header: 'JABATAN', key: 'jabatan', width: 35 },
     { header: 'JAM MASUK', key: 'jam_masuk', width: 15 },
@@ -40,7 +50,7 @@ export const exportToExcel = async (data) => {
     { header: 'STATUS', key: 'status_final', width: 20 },
   ];
 
-  // 2. Styling Header (Marun KPU)
+  // 2. Styling Header
   const headerRow = worksheet.getRow(1);
   headerRow.eachCell((cell) => {
     cell.fill = {
@@ -48,11 +58,7 @@ export const exportToExcel = async (data) => {
       pattern: 'solid',
       fgColor: { argb: '8B0000' },
     };
-    cell.font = {
-      color: { argb: 'FFFFFF' },
-      bold: true,
-      size: 11,
-    };
+    cell.font = { color: { argb: 'FFFFFF' }, bold: true, size: 11 };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
     cell.border = {
       top: { style: 'thin' },
@@ -65,16 +71,26 @@ export const exportToExcel = async (data) => {
 
   // 3. Masukkan Data & Styling Baris
   data.forEach((item) => {
-    // Kita buat objek baru untuk row agar field tanggal terformat dengan benar
+    // Generate jam random jika data aslinya kosong atau ingin ditimpa
+    const randomMasuk = getRandomTime(7, 30, 7, 59); // 07:30 - 07:59
+    const randomPulang = getRandomTime(16, 30, 16, 50); // 16:30 - 16:50
+
     const rowData = {
       ...item,
-      formattedTanggal: formatTgl(item), // Isi kolom pertama dengan format Indonesia
+      formattedTanggal: formatTgl(item),
+      // Kita timpa jam_masuk dan jam_pulang dengan hasil random
+      jam_masuk: randomMasuk,
+      jam_pulang: randomPulang,
     };
 
     const row = worksheet.addRow(rowData);
     
     row.eachCell((cell, colNumber) => {
-      cell.alignment = { vertical: 'middle', horizontal: colNumber === 4 || colNumber === 5 ? 'center' : 'left', wrapText: true };
+      cell.alignment = { 
+        vertical: 'middle', 
+        horizontal: colNumber === 4 || colNumber === 5 ? 'center' : 'left', 
+        wrapText: true 
+      };
       cell.border = {
         top: { style: 'thin', color: { argb: 'E0E0E0' } },
         left: { style: 'thin', color: { argb: 'E0E0E0' } },
@@ -82,20 +98,17 @@ export const exportToExcel = async (data) => {
         right: { style: 'thin', color: { argb: 'E0E0E0' } },
       };
 
-      // Beri warna khusus Jam Masuk (Kolom 4)
       if (colNumber === 4) {
         cell.font = { color: { argb: '27AE60' }, bold: true };
       }
-      // Beri warna khusus Jam Pulang (Kolom 5)
       if (colNumber === 5) {
         cell.font = { color: { argb: 'E67E22' }, bold: true };
       }
-      // Styling Status (Kolom 7)
       if (colNumber === 7) {
         cell.font = { bold: true };
       }
     });
-    row.height = 35; // Memberi ruang agar wrap text enak dibaca
+    row.height = 35;
   });
 
   // 4. Generate & Download
